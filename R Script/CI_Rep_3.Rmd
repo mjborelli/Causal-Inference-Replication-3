@@ -5,4 +5,24 @@ date: "4/12/2020"
 output: html_document
 ---
 
+## INTRODUCTION
 
+As the authors state, they’re trying to answer the following question “who benefited from this change and by how much.” They explore is the causal effect of unilateral divorce laws on family violence metrics, particularly domestic violence rates and suicide rates. Stevenson and Wolfers utilize the natural experiment of differentiated timing in the rollout of unilateral divorce laws in U.S. states from the mid-1970’s to the mid-1980’s in order to exploit the following declines in divorce rates. Their data for this project comes from a few sources. Suicide data comes from the National Center for Health Statistics, a census of death certificates with codes for suicide deaths. Domestic violence data is from the Family Violence Surveys taken in 1976 and 1985, with data being collected from household interviews that asked couples how they resolve conflict. Lastly, their homicide data comes from the FBI Uniform Crime Reports (UCR). UCR data is created from a voluntary police reporting system, which collects incident-level data including information on the offender, victim, and their relationship. The authors note that these data sources are not fully reliable for two reasons: They rely on the voluntary participation of agencies, and there are coding breaks stemming from changes in the definition of of the victim-perpetrator relationship.
+
+
+Stevenson and Wolfers found that unilateral divorce has statistically significant effects for women, while having no evidence of any benefit for men. They estimate that unilateral divorce laws are associated with a 10% decrease on average for the rate of intimate murders against women, 30% decreases in domestic violence for men and women, and 5-10% decreases on average of the suicide rate for women, with larger long-term effects. Figure 2 is Stevenson and Wolfers’key figure, as is shows the decline in intimate homicides holds under each of the potential definitions (spouse, non-stranger, and family member). I generally find these problems convincing, but there is one potential problem that would be good to look further at. In class, we discussed that estimating $\delta$ with differential timing and heterogeneous treatment effects over time produces biased estimates, even possibly changing the sign of the result entirely. While the intuition of the paper and results make logical sense, there is certainly justified concern that the estimates found in Stevenson and Wolfer’ paper are biased.
+
+## Background
+
+Unilateral divorce, also known as no fault divorce, is a dissolution of a marriage by only one side of the party that can be carried out for any reason. This contrasts with fault-based divorces, the standard that existed prior. In fault-based divorce proceedings, judges only granted divorces if there were some fault, such as adultery or domestic violence, that could be proved to the court. No fault divorces, as implied by their name, do not have to have any cause established and can be initiated by either party. Prior to unilateral divorce laws, people in bad or violent marriages did not have favorable choices for leaving. Leaving without becoming divorced was possible but would leave partners unable to claim assets from the marriage or even get remarried.
+
+The authors consider the likelihood that more of these violent relationships ended with either suicide or intimate homicide and that unilateral divorce laws, which allow abused spouses to leave the marriage with a more favorable position, would lower the amount of these relationships that end in negative ways. This contradicts the main predictions of the Coase theorem, in which unilateral divorce laws only transfer the property right or remarriage from the partner who wants to remain married to the one who doesn't, that marriages only end in divorce if the marriage is jointly suboptimal. Under Coase theorem, there are no“inefficient marriages”,so changes to divorce laws that allow for unilateral divorce should not affect divorce rates. Thus, Stevenson and Wolfers hypothesis will only be proven correct if the Coase theorem is violated.
+
+
+## Estimation Method
+
+$$Suicide\, rate_{s,t}\, =\, \sum_k \beta_k Unilateral_{s,t}^k\,  +\, \sum_s \eta_s State_s\, +\, \sum_t \lambda_t Year_t\, +\, Controls_{s,t}\, +\, \epsilon_{s,t}$$
+
+## Results
+
+## Conclusion
