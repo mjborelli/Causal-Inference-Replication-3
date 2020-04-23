@@ -13,6 +13,8 @@ library(tinytex)
 library(bacondecomp)
 library(lfe)
 library(estimatr)
+library(dplyr)
+library(ggplot2)
 divorce <- read_dta("D:/Documents/MA Econ/Spring/Causal Inference/Causal-Inference-Replication-3/Data/sw_nofault_divorce.dta")
 ```
 ```{r, include=FALSE}
@@ -115,7 +117,13 @@ For this replication, the "Never-Treated" group of states includes Arkansas, Del
 
 ## Results
 
+We will estimate the above equation using OLS regression, as well as estimating a similar equation for intimate homicide rates amongst women. For the dependent variable, the first set of estimations will use the number of suicides per 100,000 people for a given state and year. The second set of estimations will use the number of intimate homicides per 100,000 people for a given state and year. For both sets of estimations, the independent variable is an indicator for whether the observation is taking place after that state has adopted unilateral divorce laws. We estimate each dependent variable using three estimation methods
 
+\begin{enumerate}
+  \item OLS regression with state and year fixed effects
+  \item OLS regression with state and year fixed effects and clustered standard errors by state
+  \item OLS regression with state and year fixed effects, clustered standard errors by state, and a trend term interacted with each state fixed effect.
+\end{enumerate}
 ```{r linear model setup, include=FALSE}
 as.factor(divorce$stfips)
 
@@ -124,6 +132,7 @@ for (i in 1:nrow(divorce)){
 }
 divorce$post[divorce$exp >= 0] = 1
 divorce$post[divorce$exp < 0] = 0
+divorce$post[divorce$nfd == "PRE"] = 1
 
 suicide_reg_simple <- felm(asmrs ~ post | stfips + year, data = divorce)
 homicide_reg_simple <- felm(asmrh ~ post | stfips + year, data = divorce)
@@ -163,7 +172,7 @@ summary(homicide_reg_trend)
 \multicolumn{1}{c}{\textbf{2}}&
 \multicolumn{1}{c}{\textbf{3}}\\
 $Post-Adoption$ & `r round(suicide_reg_simple$beta[1,1], 2)`** & `r round(suicide_reg_cluster$beta[1,1], 2)` & `r round(suicide_reg_trend$beta[1,1], 2)` & `r round(homicide_reg_simple$beta[1,1], 2)`* & `r round(homicide_reg_cluster$beta[1,1], 2)` & `r round(homicide_reg_trend$beta[1,1],2)` \\
-& (`r round(suicide_reg_simple$se, 3)`) & (`r round(suicide_reg_cluster$se, 3)`) & (`r round(suicide_reg_trend$se, 3)`) & (`r round(homicide_reg_simple$se, 3)`) & (`r round(homicide_reg_cluster$se, 3)`) & (`r round(homicide_reg_trend$se, 3)`)\\
+& (`r round(suicide_reg_simple$se, 3)`) & (`r round(suicide_reg_cluster$cse, 3)`) & (`r round(suicide_reg_trend$cse[1], 3)`) & (`r round(homicide_reg_simple$se, 3)`) & (`r round(homicide_reg_cluster$cse, 3)`) & (`r round(homicide_reg_trend$cse[1], 3)`)\\
 \midrule
 Controls & x & x & x & x & x & x \\
 Clustered SE & & x & x & & x & x \\
@@ -176,8 +185,127 @@ Trend & & & x & & & x \\
 \end{tablenotes}
 \end{table}
 
+Table 2 shows the estimates for the post-adoption interaction varible, a simple estimation for the effect of unilateral divorce laws on suicide and homicide rates. Model 1 for each dependent variable gives significant estimates of a negative effect, at the 5% level for suicide rate and the 10% level for homicide rates. However, in models 2 and 3 we see no statistical significance for the estimations. Clustering standard errors for each state and adding in a trend/state interaction raised the standard errors of our estimates. This means that we do not have strong evidence that unilateral divorce laws lower suicide rates or intimate homicide rates, contradicting the findings of Stevenson and Wolfers.
+
+Our next route to estimate $\delta$ the Variance Weighted Averate Treatment of Treated (VWATT), which is described by this equation:
+$$ p \lim\ \hat{\delta}^{DD}_{n \rightarrow \infty} = VWATT + VWCT + \Delta ATT  $$
+In order to identify the VWATT, we have to make two identifying assumptions:
+
+\begin{enumerate}
+  \item Variance Weighted Common Trends (VWCT) = 0
+  \item Change in Average Treatment of Treated ($\Delta$ATT) = 0
+\end{enumerate}  
+
+To handle the $\Delta$ATT assumption, you can test if treatment effects differ over time or state, which we did above and can say that we believe this to be 0. The best way to confirm that VWCT is equal to 0 is to confirm that states have common trends before they are treated. To test the plausibility of this assumption, we create an event study to see if there are significant differences in the pre-treatment period trends.
+
+Figure 1 shows the results of the event study model for suicide, marking the effects of each lead and lag for 9 leads and 5 lags. The coefficients listed for each mean are the effects of each amount of time before/after treatment, compared to the control states. For this figure, the control states is the set of Never-Treated states. For our assumption of VWCT = 0 to hold true, we need to see that there was not a significant difference in the pre-treatment leads between treatment states and control states. Most of the coefficients for the leads are not statistically significant, with the exception of leads 1 and 2. Those leads are statistically significant since their error bars do not overlap with zero. This means we do have some evidence that VWCT $\neq$ 0, which means we might have biased estimates of VWATT. This is concerning, as we cannot reasonably state what the causal effect of unilateral divorce laws on suicide rates and intimate homicide rates are if we believe that our estimates are biased. Even so, if our results were not potentially biased, if you look at the lags you can see that we can't claim that those differences are statistically significant either. In fact, the treatment sates appear to get closer to the control states after adopting unilateral divorce laws, which is the opposite of what we hypothesized.
+
+```{r event_study, echo = FALSE}
+divorce <- divorce %>%
+  mutate(
+    lead1 = case_when(exp == -1 ~ 1, TRUE ~ 0),
+    lead2 = case_when(exp == -2 ~ 1, TRUE ~ 0),
+    lead3 = case_when(exp == -3 ~ 1, TRUE ~ 0),
+    lead4 = case_when(exp == -4 ~ 1, TRUE ~ 0),
+    lead5 = case_when(exp == -5 ~ 1, TRUE ~ 0),
+    lead6 = case_when(exp == -6 ~ 1, TRUE ~ 0),
+    lead7 = case_when(exp == -7 ~ 1, TRUE ~ 0),
+    lead8 = case_when(exp == -8 ~ 1, TRUE ~ 0),
+    lead9 = case_when(exp == -9 ~ 1, TRUE ~ 0),
+    
+    lag0 = case_when(exp == 0 ~ 1, TRUE ~ 0),
+    lag1 = case_when(exp == 1 ~ 1, TRUE ~ 0),
+    lag2 = case_when(exp == 2 ~ 1, TRUE ~ 0),
+    lag3 = case_when(exp == 3 ~ 1, TRUE ~ 0),
+    lag4 = case_when(exp == 4 ~ 1, TRUE ~ 0),
+    lag5 = case_when(exp == 5 ~ 1, TRUE ~ 0)
+  )
+
+formula3 <- as.formula(
+  paste("asmrs ~ +",
+        paste(
+          paste(paste("lead", 1:9, sep = ""), collapse = " + "),
+          paste(paste("lag", 1:5, sep = ""), collapse = " + "), sep = " + "),
+        "| year + stfips | 0 | stfips"
+  ),
+)
+
+divorce_non_PRE = subset(divorce, divorce$nfd != "PRE")
+
+reg3 <- felm(formula3, divorce$nfd != "NRS", divorce$nfd != "PRE" ,data = divorce_non_PRE)
+
+
+leadslags_plot <- tibble(
+  sd = c(reg3$cse[9:1], reg3$se[10:14]),
+  mean = c(reg3$coefficients[9:1], reg3$se[10:14]),
+  label = c(-9,-8,-7,-6, -5, -4, -3, -2, -1, 1,2,3,4,5)
+)
+
+leadslags_plot %>%
+  ggplot(aes(x = label, y = mean)) +
+  geom_point()+
+  geom_text(aes(label = round(mean, 3), color = "red"), hjust = -0.003, vjust = -0.03) +
+  geom_hline(yintercept = 0, color = "black") +
+  geom_vline(xintercept = 0, color = "black") +
+  geom_hline(yintercept = 0.035169444, color = "red") +
+  geom_errorbar(aes(ymin = mean-sd, ymax = mean+sd), width = 0.2,
+                position = position_dodge(0.05)) +
+  labs(x = "Lead/Lag", y = "Mean")+
+  theme_classic() +
+  ggtitle("Figure 1: Event Study Leads/Lags for Suicide Rate")
+
+```
+
+Next we perform a Bacon Decomposition in order to split the treatment effects into individual 2x2 difference-in-difference numbers. Figure 2 plots each of the treatment effects against their calculated weight, with more important estimates having a higher weight. There are four types of treatment effects that the Bacon decomposition categorizes each observation into:
+
+\begin{enumerate}
+\item Earlier vs. Later Treated
+\item Later vs. Always Treated
+\item Later vs. Earlier Treated
+\item Treated vs. Untreated
+\end{enumerate}
+
+Each point in Figure 2 is color-coded by its type which lets us see how the categories are distributed in both weight and estimates. Group 2 has mostly high weights that lean negative, which is corroborated in Table 3 as it has the highest combined weight of the four categories. On the other hand Group 1 generally has low weights and has estimates spread fairly evenly around zero, which means Group 1 has both a low weight and an estimate near 0 which has little impact on the average estimate of the DD coefficient. 
+
+The weighted average of the groups in the Bacon Decomposition is theoretically the same as the DD coefficient that we estimated using OLS earlier. To prove this, we can sum the weighted averages using this formula:
+
+$$ \hat{\delta}^{DD} = \sum_{i=1}^4 Weight_i * Average Estimate_i$$
+Where $i$ represents the Bacon Decomposition groups listed previously. Summing the weighted averages together gives us an estimate of `r round(0.11065*(-0.18677) + 0.38443*(-7.04369) + 0.26464*3.51197 + 0.24027*0.553091, 3)`. This does not alight with our previous DD estimates for the suicide rate, which was -2.75 for the model with state-clustered standard errors and trend interacted with state fixed effects. For this to have happened, there must have been some modelling error on either side of this estimate.
+
+```{r divorce_bacon_decomp, include=FALSE}
+df_bacon <- bacon(asmrs ~ post,
+                  data = divorce, id_var = "stfips",
+                  time_var = "year")
+```
+```{r bacon_plot, echo=FALSE}
+ggplot(data = df_bacon, mapping=aes(x = weight, y = estimate, color = type)) +
+  geom_point() +
+  labs(title = "Figure 2: Bacon Decomposition Weights and Estimates", x = "Weight", y = "Estimate") +
+  theme_classic()
+```
+
+\begin{table}
+\caption{Bacon Decomposition Weights and Estimates}
+\centering
+\begin{tabular}{l|c|c}
+\toprule
+\multicolumn{1}{l}{\textbf{Type}}&
+\multicolumn{1}{c}{\textbf{Weight}} &
+\multicolumn{1}{c}{\textbf{Average Estimate}} \\
+\midrule
+Earlier vs. Later Treated & 0.11065 & -0.18677 \\
+Later vs. Always Treated & 0.38443 & -7.04369 \\
+Later vs. Earlier Treated & 0.26464 & 3.51197 \\
+Treated vs. Untreated & 0.24027 & 0.533091 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 
 ## Conclusion
 
+There are two situations in which the static DD parameter is a biased estimate of the true ATT: If $\Delta$ATT $\neq$ 0, meaning that the average treatment effect changes over either location or time; or if VWCT $\neq$ 0, which means that we didn't have common trends that balanced out in the pre-treatment period. We can and did test for $\Delta$ATT = 0, but we can never test for VWCT = 0 because it involves counterfactuals to reality. The VWCT assumption is not testable because it is based on $Y^0$ for treatment groups in the post-treatment period, but we only have pre-treatment data for those. Normally in order to justify this assumption, you check to see if treatment groups pre-treatment are approximately the same as the control group and if they are we can reasonably believe this assumption. However, through the analysis in this replication, we saw that leads in the two years before adopting unilateral divorce laws were significantly different between treatment states and control states, meaning we cannot reasonably assume that VWCT = 0. 
+
+This is very concerning as it means we will likely experience bias in our estimates that we cannot account for, and therefore not be able to report true causal effects. In their project, Stevenson and Wolfers found significant evidence that unilateral divorce laws led to lower rates of suicide, intimate homicide, and domestic violence in women in the U.S. In this replication however, we found no significant evidence of this effect. The data used for this replication was not as expansive as the data used in the original paper, which included case-by-case demographics details that could not be controlled for using the aggregated data supplied for this replication. In any case, while future replications could still justifiably find significant evidence that unilateral divorce laws reduce the negative outcomes of marriages, we could not in this replication through utilization of the Bacon Decomposition.
 
 
