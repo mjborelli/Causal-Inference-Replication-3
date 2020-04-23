@@ -2,12 +2,26 @@
 title: "Causal Inference Replication 3"
 author: "Matthew Borelli"
 date: "4/12/2020"
-output: html_document
+output:
+  pdf_document: default
 ---
 
-## INTRODUCTION
+```{r setup, include=FALSE}
+library(kableExtra)
+library(haven)
+library(tinytex)
+library(bacondecomp)
+library(lfe)
+library(estimatr)
+divorce <- read_dta("D:/Documents/MA Econ/Spring/Causal Inference/Causal-Inference-Replication-3/Data/sw_nofault_divorce.dta")
+```
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
 
-As the authors state, they’re trying to answer the following question “who benefited from this change and by how much.” They explore is the causal effect of unilateral divorce laws on family violence metrics, particularly domestic violence rates and suicide rates. Stevenson and Wolfers utilize the natural experiment of differentiated timing in the rollout of unilateral divorce laws in U.S. states from the mid-1970’s to the mid-1980’s in order to exploit the following declines in divorce rates. Their data for this project comes from a few sources. Suicide data comes from the National Center for Health Statistics, a census of death certificates with codes for suicide deaths. Domestic violence data is from the Family Violence Surveys taken in 1976 and 1985, with data being collected from household interviews that asked couples how they resolve conflict. Lastly, their homicide data comes from the FBI Uniform Crime Reports (UCR). UCR data is created from a voluntary police reporting system, which collects incident-level data including information on the offender, victim, and their relationship. The authors note that these data sources are not fully reliable for two reasons: They rely on the voluntary participation of agencies, and there are coding breaks stemming from changes in the definition of of the victim-perpetrator relationship.
+# INTRODUCTION
+
+Betsey Stevenson and Justin Wolfers project, "Bargaining in the Shadow of the Law: Divorce Laws and Family Distress", focuses on the expansion of divorce laws in the U.S. as they relate to changes in domestic abuse. They determine the causal effect of unilateral divorce laws on family violence metrics, particularly domestic violence rates and suicide rates. Stevenson and Wolfers utilize the natural experiment of differentiated timing in the rollout of unilateral divorce laws in U.S. states from the mid-1970’s to the mid-1980’s in order to exploit the following declines in divorce rates. Their data for this project comes from a few sources. Suicide data comes from the National Center for Health Statistics, a census of death certificates with codes for suicide deaths. Domestic violence data is from the Family Violence Surveys taken in 1976 and 1985, with data being collected from household interviews that asked couples how they resolve conflict. Lastly, their homicide data comes from the FBI Uniform Crime Reports (UCR). UCR data is created from a voluntary police reporting system, which collects incident-level data including information on the offender, victim, and their relationship. The authors note that these data sources are not fully reliable for two reasons: They rely on the voluntary participation of agencies, and there are coding breaks stemming from changes in the definition of of the victim-perpetrator relationship.
 
 
 Stevenson and Wolfers found that unilateral divorce has statistically significant effects for women, while having no evidence of any benefit for men. They estimate that unilateral divorce laws are associated with a 10% decrease on average for the rate of intimate murders against women, 30% decreases in domestic violence for men and women, and 5-10% decreases on average of the suicide rate for women, with larger long-term effects. Figure 2 is Stevenson and Wolfers’key figure, as is shows the decline in intimate homicides holds under each of the potential definitions (spouse, non-stranger, and family member). I generally find these problems convincing, but there is one potential problem that would be good to look further at. In class, we discussed that estimating $\delta$ with differential timing and heterogeneous treatment effects over time produces biased estimates, even possibly changing the sign of the result entirely. While the intuition of the paper and results make logical sense, there is certainly justified concern that the estimates found in Stevenson and Wolfer’ paper are biased.
@@ -21,8 +35,149 @@ The authors consider the likelihood that more of these violent relationships end
 
 ## Estimation Method
 
-$$Suicide\, rate_{s,t}\, =\, \sum_k \beta_k Unilateral_{s,t}^k\,  +\, \sum_s \eta_s State_s\, +\, \sum_t \lambda_t Year_t\, +\, Controls_{s,t}\, +\, \epsilon_{s,t}$$
+The following equation is the estimation equation that Stevenson and Wolfers utilize
+
+\[Suicide\, rate_{s,t}\, =\, \sum_k \beta_k Unilateral_{s,t}^k\,  +\, \sum_s \eta_s State_s\, +\, \sum_t \lambda_t Year_t\, +\, Controls_{s,t}\, +\, \epsilon_{s,t}\]
+
+Generally, this equation estimates the causal effect of unilateral divorce laws on suicide rates while accounting for state, year, and other controls. To break down this equation, there are thee subscripts ($k$, $t$, $s$), three summations, three coefficients, and the error term that should be explained. 
+
+\begin{itemize}
+  \item $k$ denotes the number of years since the adoption of unilateral divorce.
+  \item $s$ denotes what state the observation is from.
+  \item $t$ denotes the year an observation is from.
+  \item $\sum_k$ is summation of all numbers of years since a state has passed unilateral divorce laws.
+  \item $\sum_s$ is summation of all states in the model.
+  \item $\sum_t$ is summation of all years in the data set.
+  \item $\beta_k$ is the effect of a one unit change in the $Unilateral^k_{s,t}$ variable, a binary variable set to 1 is a state adopted unilateral divorce laws $k$ years ago.
+  \item $\eta_s$ is the fixed effect of $State_s$.
+  \item $\lambda_t$ is the fixed effect of year = $Year_t$.
+  \item $\epsilon_{s,t}$ is the error term for each $State_s$ and $Year_t$ combination.
+\end{itemize}
+
+The main parameter of interest is $\beta_k$, the effect of unilateral divorce laws $k$ years after they were adopted, on suicide rates. At $k = 1$ for example, we estimate $\beta_1$ which is the causal effect of unilateral divorce laws on the suicide rate in states which adopted unilateral divorce laws one year before.
+
+## Pre-Analysis
+
+In differential timing models, there are generally three timing categories that we can expect to find in the population, which in this case is the U.S. states.
+
+\begin{enumerate}
+  \item Never-Treated: States that never adopted unilateral divorce laws, coded as NRS.
+  \item Always-Treated: States that adopted unilateral divorce laws before the sample period, coded as PRE.
+  \item Treated: States that adopted unilateral divorce laws after the sample period or never.
+\end{enumerate}
+
+Additional distinctions can be made depending on the timing of treatment during the sample period, such as creating a distinction between early and late adoption, but this is optional. Table 1 lists all of the states in the sample set along with the year that they adopted unilateral divorce laws. 
+
+
+\begin{table}
+\caption{Adoption Year of Unilateral Divorce by State}
+\centering
+\begin{tabular}{ll|ll|ll|ll}
+\toprule
+\multicolumn{1}{l}{\textbf{State}}&
+\multicolumn{1}{l}{\textbf{Year}}&
+\multicolumn{1}{l}{\textbf{State}}&
+\multicolumn{1}{l}{\textbf{Year}}&
+\multicolumn{1}{l}{\textbf{State}}&
+\multicolumn{1}{l}{\textbf{Year}}&
+\multicolumn{1}{l}{\textbf{State}}&
+\multicolumn{1}{l}{\textbf{Year}}\\
+Alabama & 1971 & Arizona & 1973 & Arkansas & NRS & California & 1970 \\
+\midrule
+Coloado & 1971 & Connecticut & 1973 & Delaware & NRS & District of Columbia & 1977 \\
+\midrule
+Florida & 1971 & Georgia & 1973 & Idaho & 1971 & Illinois & 1984 \\
+\midrule
+Indiana & 1973 & Iowa & 1970 & Kansas & 1969 & Kentucky & 1972  \\
+\midrule
+Lousiana  &  PRE & Maine & 1973 & Maryland & PRE & Massachussetts & 1975 \\
+\midrule
+Michigan & 1972 & Minnesota & 1974 & Mississippi & NRS & Missouri & 1973 \\
+\midrule 
+Montana & 1975 & Nebraska & 1972 & Nevada & 1973 & New Hampshire & 1971 \\
+\midrule
+New Jersey & 1971 & New Mexico & 1973 & New York & NRS & North Carolina & PRE \\
+\midrule
+North Dakota & 1971 & Ohio & 1974 & Oklahoma & PRE & Oregon & 1973 \\
+\midrule
+Pennsylvania & 1980 & Rhode Island & 1976 & South Carolina & 1969 & South Dakota & 1985 \\
+\midrule
+Tennesseee & NRS & Texas & 1974 & Utah & PRE & Vermont & PRE \\
+\midrule
+Virginia & PRE & Washington & 1973 & West Virginia & PRE & Wisconsin & 1977 \\
+\midrule
+Wyoming & 1977 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For this replication, the "Never-Treated" group of states includes Arkansas, Delaware, Mississippi, New York, and Tennessee. We would expect that these states should not experience any significant change of trend in suicide or homicide rates over the time period we are looking at, since they never adopted unilateral divorce laws (at least in sample of time from 1964-1996). The "Always-Treated"group of states includes Louisiana, Maryland, North Carolina, Oklahoma, Utah, Vermont, Virginia, and West Virginia. With these states, we would expect that the suicide and domestic violence trends don't change during our sample period as well. Every other state is in the "Treatment" group, meaning that those states started the sample period untreated, adopted unilateral divorce laws between 1964 and 1996, and ended the time period as treated. Most of the states in this category adopted unilateral divorce laws in the 1971-1976 year range, with some outliers on either side. If unilateral divorce laws have a significant impact on suicide rates and homicide rates, we would expect that the trend in treatment states should change from the pre-treatment to post-treatment period for each state.
 
 ## Results
 
+
+```{r linear model setup, include=FALSE}
+as.factor(divorce$stfips)
+
+for (i in 1:nrow(divorce)){
+  ifelse(divorce[i, 13] >= 0, 1, 0)
+}
+divorce$post[divorce$exp >= 0] = 1
+divorce$post[divorce$exp < 0] = 0
+
+suicide_reg_simple <- felm(asmrs ~ post | stfips + year, data = divorce)
+homicide_reg_simple <- felm(asmrh ~ post | stfips + year, data = divorce)
+
+suicide_reg_cluster <- felm(asmrs ~ post | stfips + year | 0 | stfips, data = divorce)
+homicide_reg_cluster <- felm(asmrh ~ post | stfips + year | 0 | stfips, data = divorce)
+
+divorce$trend = divorce$year - 1963
+
+suicide_reg_trend <- felm(asmrs ~ post + stfips:trend | stfips + year| 0 | stfips, data = divorce)
+homicide_reg_trend <- felm(asmrh ~ post + stfips:trend| stfips + year | 0 | stfips, data = divorce)
+
+summary(suicide_reg_simple)
+summary(homicide_reg_simple)
+summary(suicide_reg_cluster)
+summary(homicide_reg_cluster)
+summary(suicide_reg_trend)
+summary(homicide_reg_trend)
+```
+
+\begin{table}
+\caption{Difference-in-Difference Estimation}
+\centering
+\begin{tabular}{l|c c c| c c c}
+\toprule
+\multicolumn{1}{l}{\textbf{Outcome}}&
+\multicolumn{1}{c}{\textbf{}}&
+\multicolumn{1}{c}{\textbf{Suicide Rate}}&
+\multicolumn{1}{c}{\textbf{}}&
+\multicolumn{1}{c}{\textbf{}}&
+\multicolumn{1}{c}{\textbf{Homocide Rate}}\\
+\multicolumn{1}{l}{\textbf{}}&
+\multicolumn{1}{c}{\textbf{1}}&
+\multicolumn{1}{c}{\textbf{2}}&
+\multicolumn{1}{c}{\textbf{3}}&
+\multicolumn{1}{c}{\textbf{1}}&
+\multicolumn{1}{c}{\textbf{2}}&
+\multicolumn{1}{c}{\textbf{3}}\\
+$Post-Adoption$ & `r round(suicide_reg_simple$beta[1,1], 2)`** & `r round(suicide_reg_cluster$beta[1,1], 2)` & `r round(suicide_reg_trend$beta[1,1], 2)` & `r round(homicide_reg_simple$beta[1,1], 2)`* & `r round(homicide_reg_cluster$beta[1,1], 2)` & `r round(homicide_reg_trend$beta[1,1],2)` \\
+& (`r round(suicide_reg_simple$se, 3)`) & (`r round(suicide_reg_cluster$se, 3)`) & (`r round(suicide_reg_trend$se, 3)`) & (`r round(homicide_reg_simple$se, 3)`) & (`r round(homicide_reg_cluster$se, 3)`) & (`r round(homicide_reg_trend$se, 3)`)\\
+\midrule
+Controls & x & x & x & x & x & x \\
+Clustered SE & & x & x & & x & x \\
+Trend & & & x & & & x \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\tiny
+\item Standard errors in parenthesis. * p$<$0.10, ** p$<$0.05, *** p$<$0.01
+\end{tablenotes}
+\end{table}
+
+
 ## Conclusion
+
+
+
